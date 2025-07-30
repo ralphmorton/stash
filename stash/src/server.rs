@@ -16,30 +16,30 @@ use super::{Blob, Cmd, Error, File, Response, Tag, db, sha256};
 const BLOB_DIR: &'static str = "blobs";
 const FILE_DIR: &'static str = "files";
 
+pub trait NodeAuth {
+    fn allow(&self, node: NodeId) -> impl Future<Output = bool> + Send;
+}
+
 #[derive(Clone)]
-pub struct Server {
-    allowed_nodes: Vec<NodeId>,
+pub struct Server<A: NodeAuth> {
+    auth: A,
     root: PathBuf,
     db: SqlitePool,
     bincode_config: bincode::config::Configuration,
 }
 
-impl Debug for Server {
+impl<A: NodeAuth> Debug for Server<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Server {{ allowed_nodes: {:?}, root: {:?}, db: {:?} }}",
-            self.allowed_nodes, self.root, self.db
-        )?;
+        write!(f, "Server {{ root: {:?}, db: {:?} }}", self.root, self.db)?;
 
         Ok(())
     }
 }
 
-impl Server {
-    pub fn new(allowed_nodes: Vec<NodeId>, root: PathBuf, db: SqlitePool) -> Result<Self, Error> {
+impl<A: NodeAuth> Server<A> {
+    pub fn new(auth: A, root: PathBuf, db: SqlitePool) -> Result<Self, Error> {
         let i = Self {
-            allowed_nodes,
+            auth,
             root: root.canonicalize()?,
             db,
             bincode_config: bincode::config::standard(),
@@ -312,11 +312,11 @@ impl Server {
     }
 }
 
-impl ProtocolHandler for Server {
+impl<A: NodeAuth + Send + Sync + 'static> ProtocolHandler for Server<A> {
     async fn accept(&self, connection: Connection) -> Result<(), AcceptError> {
         let node_id = connection.remote_node_id()?;
         tracing::info!(node_id = ?node_id, "accept");
-        if !self.allowed_nodes.iter().any(|pk| pk == &node_id) {
+        if !self.auth.allow(node_id).await {
             tracing::warn!(node_id = ?node_id, "unauthorized_client_node");
             return Err(AcceptError::NotAllowed {});
         }

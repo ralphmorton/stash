@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use iroh::{Endpoint, SecretKey, Watcher, protocol::Router};
+use iroh::{Endpoint, NodeId, SecretKey, Watcher, protocol::Router};
 use sqlx::SqlitePool;
-use stash::{Client, Server};
+use stash::{Client, NodeAuth, Server};
 use uuid::Uuid;
 
 pub struct TestInfra {
@@ -70,6 +70,14 @@ impl TestInfra {
     }
 }
 
+struct TestAuth(NodeId);
+
+impl NodeAuth for TestAuth {
+    async fn allow(&self, node: NodeId) -> bool {
+        node == self.0
+    }
+}
+
 #[allow(dead_code)]
 pub struct ClientServer {
     pub infra: TestInfra,
@@ -96,7 +104,7 @@ impl ClientServer {
             .accept(
                 stash::ALPN,
                 Server::new(
-                    vec![client_sk.public()],
+                    TestAuth(client_sk.public()),
                     infra.root.clone(),
                     infra.pool.clone(),
                 )
