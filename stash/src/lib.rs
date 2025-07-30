@@ -3,6 +3,7 @@ mod common;
 mod db;
 mod error;
 mod server;
+mod sha256;
 
 pub use client::Client;
 pub use common::{ALPN, Blob, Cmd, File, Response, SHA256, Tag};

@@ -3,18 +3,26 @@ use std::path::PathBuf;
 use iroh::{Endpoint, SecretKey, Watcher, protocol::Router};
 use sqlx::SqlitePool;
 use stash::{Client, Server};
+use uuid::Uuid;
 
-pub struct TestDb(String, SqlitePool);
+pub struct TestInfra {
+    pub root: PathBuf,
+    pub pool: SqlitePool,
+}
 
-impl Drop for TestDb {
+impl Drop for TestInfra {
     fn drop(&mut self) {
-        std::fs::remove_file(&self.0).unwrap();
+        std::fs::remove_dir_all(&self.root).unwrap();
     }
 }
 
-impl TestDb {
+#[allow(dead_code)]
+impl TestInfra {
     pub async fn new() -> Self {
-        let db = format!("test-{}.db", uuid::Uuid::new_v4());
+        let root = PathBuf::from(format!("test-infra-{}", Uuid::new_v4().to_string()));
+        std::fs::create_dir(&root).unwrap();
+
+        let db = format!("{}/test.db", root.display());
 
         std::process::Command::new("diesel")
             .arg("migration")
@@ -32,16 +40,39 @@ impl TestDb {
 
         let pool = SqlitePool::connect(&db).await.unwrap();
 
-        TestDb(db, pool)
+        TestInfra { root, pool }
     }
 
-    pub fn pool<'a>(&'a self) -> &'a SqlitePool {
-        &self.1
+    pub async fn blobs(&self) -> Vec<String> {
+        let mut blobs_dir = tokio::fs::read_dir(self.root.join("blobs")).await.unwrap();
+
+        let mut blobs = vec![];
+        while let Some(entry) = blobs_dir.next_entry().await.unwrap() {
+            if entry.file_type().await.unwrap().is_file() {
+                blobs.push(entry.file_name().into_string().unwrap());
+            }
+        }
+
+        blobs
+    }
+
+    pub async fn files(&self) -> Vec<String> {
+        let mut files_dir = tokio::fs::read_dir(self.root.join("files")).await.unwrap();
+
+        let mut files = vec![];
+        while let Some(entry) = files_dir.next_entry().await.unwrap() {
+            if entry.file_type().await.unwrap().is_file() {
+                files.push(entry.file_name().into_string().unwrap());
+            }
+        }
+
+        files
     }
 }
 
 #[allow(dead_code)]
 pub struct ClientServer {
+    pub infra: TestInfra,
     pub client: Client,
     pub client_sk: SecretKey,
     pub server: Router,
@@ -49,7 +80,7 @@ pub struct ClientServer {
 }
 
 impl ClientServer {
-    pub async fn new(db: sqlx::SqlitePool, root: PathBuf) -> Self {
+    pub async fn new(infra: TestInfra) -> Self {
         let mut rng = rand::thread_rng();
         let server_sk = SecretKey::generate(&mut rng);
         let client_sk = SecretKey::generate(&mut rng);
@@ -64,7 +95,12 @@ impl ClientServer {
         let server = Router::builder(server_endpoint)
             .accept(
                 stash::ALPN,
-                Server::new(vec![client_sk.public()], root, db).unwrap(),
+                Server::new(
+                    vec![client_sk.public()],
+                    infra.root.clone(),
+                    infra.pool.clone(),
+                )
+                .unwrap(),
             )
             .spawn();
 
@@ -80,6 +116,7 @@ impl ClientServer {
         let client = stash::Client::with_addr(client_endpoint, server_addr);
 
         Self {
+            infra,
             client,
             client_sk,
             server,

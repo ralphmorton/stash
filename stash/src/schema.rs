@@ -22,6 +22,7 @@ diesel::table! {
         id -> Nullable<Integer>,
         name -> Text,
         content_id -> Integer,
+        created -> Text,
     }
 }
 

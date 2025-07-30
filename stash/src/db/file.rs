@@ -1,6 +1,9 @@
 use chrono::NaiveDateTime;
 use sqlx::{Executor, Sqlite, prelude::FromRow, query, query_as};
 
+use crate::SHA256;
+
+#[allow(dead_code)]
 #[derive(Debug, FromRow)]
 pub struct File {
     pub id: i64,
@@ -13,10 +16,21 @@ pub struct File {
 pub struct FileDesc {
     pub name: String,
     pub size: i64,
+    pub hash: SHA256,
     pub created: NaiveDateTime,
 }
 
 impl File {
+    pub async fn by_name<'a, E: Executor<'a, Database = Sqlite>>(
+        conn: E,
+        name: &str,
+    ) -> Result<Option<File>, sqlx::Error> {
+        query_as::<_, File>("SELECT * FROM files WHERE name = $1")
+            .bind(name)
+            .fetch_optional(conn)
+            .await
+    }
+
     pub async fn insert<'a, E: Executor<'a, Database = Sqlite>>(
         conn: E,
         name: &str,
@@ -49,12 +63,13 @@ impl File {
     ) -> Result<Vec<FileDesc>, sqlx::Error> {
         query_as::<_, FileDesc>(
             r#"
-                SELECT f.name, c.size, f.created
+                SELECT f.name, c.size, c.hash, f.created
                 FROM file_tags ft
                 JOIN tags t ON t.id = ft.tag_id
                 JOIN files f ON f.id = ft.file_id
                 JOIN file_contents c ON c.id = f.content_id
                 WHERE t.name = $1 AND f.name LIKE $2
+                ORDER BY f.name
             "#,
         )
         .bind(tag)

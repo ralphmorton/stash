@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
-use sqlx::{Executor, Sqlite, prelude::FromRow, query, query_as};
+use sqlx::{Executor, Sqlite, prelude::FromRow, query_as};
 
+#[allow(dead_code)]
 #[derive(Debug, FromRow)]
 pub struct Tag {
     pub id: i64,
@@ -12,7 +13,7 @@ impl Tag {
     pub async fn all<'a, E: Executor<'a, Database = Sqlite>>(
         conn: E,
     ) -> Result<Vec<Tag>, sqlx::Error> {
-        query_as::<_, Tag>("SELECT * FROM tags")
+        query_as::<_, Tag>("SELECT * FROM tags ORDER BY name")
             .fetch_all(conn)
             .await
     }
@@ -37,16 +38,5 @@ impl Tag {
         .bind(name)
         .fetch_one(conn)
         .await
-    }
-
-    pub async fn delete<'a, E: Executor<'a, Database = Sqlite>>(
-        conn: E,
-        id: i64,
-    ) -> Result<u64, sqlx::Error> {
-        query("DELETE FROM tags WHERE id = $1")
-            .bind(id)
-            .execute(conn)
-            .await
-            .map(|r| r.rows_affected())
     }
 }

@@ -1,7 +1,6 @@
-use std::{f32::consts::E, str::FromStr};
+use std::str::FromStr;
 
-use chrono::NaiveDateTime;
-use serde::{Deserialize, Serialize};
+use bincode::{Decode, Encode};
 
 use super::db;
 
@@ -15,21 +14,53 @@ pub enum Either<A, B> {
     Right(B),
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Decode, Encode)]
 pub enum Cmd {
-    Tags,
-    CreateTag { tag: String },
-    DeleteTag { tag: String },
+    AllTags,
     CreateBlob,
-    DescribeBlob { name: String },
-    List { tag: String, prefix: Option<String> },
-    Search { tag: String, term: String },
+    DescribeBlob {
+        name: String,
+    },
+    AppendBlob {
+        name: String,
+        data: Vec<u8>,
+    },
+    CommitBlob {
+        name: String,
+        file_name: String,
+        tags: Vec<String>,
+    },
+    List {
+        tag: String,
+        prefix: Option<String>,
+    },
+    Search {
+        tag: String,
+        term: String,
+    },
+    Tags {
+        name: String,
+    },
+    Delete {
+        name: String,
+    },
+    Download {
+        hash: SHA256,
+        start: u64,
+        len: u64,
+    },
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Decode, Encode, PartialEq)]
 pub enum Response<R> {
     Ok(R),
     Err(String),
+}
+
+impl Response<String> {
+    pub fn ok() -> Self {
+        Self::Ok("OK".to_string())
+    }
 }
 
 impl<R> Response<R> {
@@ -48,7 +79,7 @@ impl<R> Response<R> {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Decode, PartialEq, Encode)]
 pub struct Tag(String);
 
 impl Tag {
@@ -77,11 +108,12 @@ impl FromStr for Tag {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Decode, Encode, PartialEq)]
 pub struct File {
     pub name: String,
     pub size: u64,
-    pub created: NaiveDateTime,
+    pub hash: SHA256,
+    pub created: i64,
 }
 
 impl From<db::FileDesc> for File {
@@ -89,12 +121,13 @@ impl From<db::FileDesc> for File {
         Self {
             name: value.name,
             size: value.size as u64,
-            created: value.created,
+            hash: value.hash,
+            created: value.created.and_utc().timestamp(),
         }
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Decode, Encode, PartialEq)]
 pub struct Blob {
     pub name: String,
     pub size: u64,

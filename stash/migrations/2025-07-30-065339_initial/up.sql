@@ -19,6 +19,7 @@ CREATE TABLE files (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     content_id INTEGER NOT NULL,
+    created TEXT NOT NULL,
     FOREIGN KEY (content_id) REFERENCES file_contents(id) ON DELETE CASCADE
 );
 

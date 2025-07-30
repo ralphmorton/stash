@@ -5,7 +5,8 @@ pub enum Error {
     CloseError(iroh::endpoint::ClosedStream),
     ReadError(iroh::endpoint::ReadError),
     WriteError(iroh::endpoint::WriteError),
-    JsonError(serde_json::Error),
+    DecodeError(bincode::error::DecodeError),
+    EncodeError(bincode::error::EncodeError),
     IoError(std::io::Error),
     DbError(sqlx::Error),
 }
@@ -18,7 +19,8 @@ impl std::fmt::Display for Error {
             Self::CloseError(e) => write!(f, "CloseError: {:?}", e),
             Self::WriteError(e) => write!(f, "WriteError: {:?}", e),
             Self::ReadError(e) => write!(f, "ReadError: {:?}", e),
-            Self::JsonError(e) => write!(f, "JsonError: {:?}", e),
+            Self::DecodeError(e) => write!(f, "DecodeError: {:?}", e),
+            Self::EncodeError(e) => write!(f, "EncodeError: {:?}", e),
             Self::IoError(e) => write!(f, "IoError: {:?}", e),
             Self::DbError(e) => write!(f, "DbError: {:?}", e),
         }
@@ -57,9 +59,15 @@ impl From<iroh::endpoint::WriteError> for Error {
     }
 }
 
-impl From<serde_json::Error> for Error {
-    fn from(value: serde_json::Error) -> Self {
-        Self::JsonError(value)
+impl From<bincode::error::DecodeError> for Error {
+    fn from(value: bincode::error::DecodeError) -> Self {
+        Self::DecodeError(value)
+    }
+}
+
+impl From<bincode::error::EncodeError> for Error {
+    fn from(value: bincode::error::EncodeError) -> Self {
+        Self::EncodeError(value)
     }
 }
 

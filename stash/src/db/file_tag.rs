@@ -1,5 +1,6 @@
-use sqlx::{Executor, Sqlite, prelude::FromRow, query, query_as};
+use sqlx::{Executor, Sqlite, prelude::FromRow, query_as};
 
+#[allow(dead_code)]
 #[derive(Debug, FromRow)]
 pub struct FileTag {
     pub id: i64,
@@ -7,17 +8,12 @@ pub struct FileTag {
     pub tag_id: i64,
 }
 
-impl FileTag {
-    pub async fn for_file<'a, E: Executor<'a, Database = Sqlite>>(
-        conn: E,
-        file_id: i64,
-    ) -> Result<Vec<FileTag>, sqlx::Error> {
-        query_as::<_, FileTag>("SELECT * FROM file_tags WHERE file_id = $1")
-            .bind(file_id)
-            .fetch_all(conn)
-            .await
-    }
+#[derive(FromRow)]
+struct Tag {
+    name: String,
+}
 
+impl FileTag {
     pub async fn insert<'a, E: Executor<'a, Database = Sqlite>>(
         conn: E,
         file_id: i64,
@@ -32,14 +28,26 @@ impl FileTag {
         .await
     }
 
-    pub async fn delete<'a, E: Executor<'a, Database = Sqlite>>(
+    pub async fn for_file<'a, E: Executor<'a, Database = Sqlite>>(
         conn: E,
-        id: i64,
-    ) -> Result<u64, sqlx::Error> {
-        query("DELETE FROM file_tags WHERE id = $1")
-            .bind(id)
-            .execute(conn)
-            .await
-            .map(|r| r.rows_affected())
+        file_id: i64,
+    ) -> Result<Vec<String>, sqlx::Error> {
+        let tags = query_as::<_, Tag>(
+            r#"
+                SELECT t.name
+                FROM file_tags ft
+                JOIN tags t ON t.id = ft.tag_id
+                WHERE ft.file_id = $1
+                ORDER BY t.name
+            "#,
+        )
+        .bind(file_id)
+        .fetch_all(conn)
+        .await?
+        .into_iter()
+        .map(|t| t.name)
+        .collect();
+
+        Ok(tags)
     }
 }
