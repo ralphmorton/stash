@@ -13,14 +13,9 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().unwrap();
     let config = Config::build();
 
-    let daemon_db = setup_db(&config.db).await;
-    let daemon_db = daemon_db?;
-
+    let daemon_db = setup_db(&config.db).await?;
     let auth = Auth::new(daemon_db, config.admin).await?;
-
-    let server_db_path = config.root.join("server.db");
-    let server_db = SqlitePool::connect(server_db_path.to_str().unwrap()).await?;
-    let server = Server::new(auth, config.root, server_db)?;
+    let server = Server::new(auth, config.root).await?;
 
     let endpoint = Endpoint::builder()
         .discovery_n0()
