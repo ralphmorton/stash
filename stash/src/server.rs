@@ -16,6 +16,8 @@ use super::{Blob, Cmd, Error, File, Response, Tag, db, sha256};
 const BLOB_DIR: &'static str = "blobs";
 const FILE_DIR: &'static str = "files";
 
+const BLOB_EXPIRY_DAYS: i64 = 7;
+
 pub trait NodeAuth {
     fn allow(&self, node: NodeId) -> impl Future<Output = bool> + Send;
     fn add(&self, caller: NodeId, node: NodeId) -> impl Future<Output = bool> + Send;
@@ -85,6 +87,10 @@ impl<A: NodeAuth> Server<A> {
             } => {
                 let file = self.commit_blob(caller, name, file_name, tags).await?;
                 bincode::encode_to_vec(&file, self.bincode_config)?
+            }
+            Cmd::GcBlobs => {
+                let rsp = self.gc_blobs().await?;
+                bincode::encode_to_vec(&rsp, self.bincode_config)?
             }
             Cmd::List { tag, prefix } => {
                 let files = self.list(tag, prefix).await?;
@@ -243,6 +249,23 @@ impl<A: NodeAuth> Server<A> {
         Ok(Response::Ok(file))
     }
 
+    async fn gc_blobs(&self) -> Result<Response<String>, Error> {
+        let blobs_path = self.root.join(BLOB_DIR);
+
+        let cutoff = chrono::Utc::now().timestamp() - BLOB_EXPIRY_DAYS;
+
+        let mut dir = tokio::fs::read_dir(blobs_path).await?;
+        while let Some(entry) = dir.next_entry().await? {
+            let meta = entry.metadata().await?;
+
+            if meta.file_type().is_file() && meta.atime() < cutoff {
+                tokio::fs::remove_file(entry.path()).await?;
+            }
+        }
+
+        Ok(Response::ok())
+    }
+
     async fn list(
         &self,
         tag: String,
@@ -296,10 +319,28 @@ impl<A: NodeAuth> Server<A> {
         match db::File::by_name(&self.db, &name).await? {
             None => Ok(Response::Err("No such file".to_string())),
             Some(file) => {
-                db::File::delete(&self.db, file.id).await?;
+                let mut transaction = self.db.begin().await?;
+                db::File::delete(&mut *transaction, file.id).await?;
+                self.gc_content(&mut transaction, file.content_id).await?;
+                transaction.commit().await?;
+
                 Ok(Response::ok())
             }
         }
+    }
+
+    async fn gc_content(
+        &self,
+        transaction: &mut sqlx::Transaction<'static, sqlx::Sqlite>,
+        id: i64,
+    ) -> Result<(), Error> {
+        if let Some(content) = db::FileContent::find_orphaned(&mut **transaction, id).await? {
+            let path = self.file_path(&content.hash)?;
+            tokio::fs::remove_file(path).await?;
+            db::FileContent::delete(&mut **transaction, content.id).await?;
+        }
+
+        Ok(())
     }
 
     async fn download(

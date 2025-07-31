@@ -120,11 +120,17 @@ async fn file_management() {
 
     let mut files = client_server.infra.files().await;
     files.sort();
-    assert_eq!(files, vec![file1.hash, file2.hash]);
+    assert_eq!(files, vec![file1.hash, file2.hash.clone()]);
 
     let tags1 = client.tags(file1.name.clone()).await.unwrap();
     assert!(matches!(tags1, Response::Err(_)));
     assert_eq!(tags1.err(), "No such file");
+
+    client.delete(file3.name.clone()).await.unwrap().unwrap();
+
+    let mut files = client_server.infra.files().await;
+    files.sort();
+    assert_eq!(files, vec![file2.hash]);
 }
 
 #[tokio::test]

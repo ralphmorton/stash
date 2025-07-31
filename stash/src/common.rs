@@ -36,6 +36,7 @@ pub enum Cmd {
         file_name: String,
         tags: Vec<String>,
     },
+    GcBlobs,
     List {
         tag: String,
         prefix: Option<String>,
