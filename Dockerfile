@@ -12,10 +12,7 @@ RUN cargo build --release
 FROM alpine:3.20
 
 RUN touch .env
-RUN adduser -D app_user
-USER app_user
 
-COPY --from=builder --chown=app_user:app_user ./target/release/stash-daemon .
-COPY --from=builder --chown=app_user:app_user ./target/release/stash .
+COPY --from=builder ./target/release/stash-daemon .
 
 CMD ./stash-daemon
