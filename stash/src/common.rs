@@ -71,6 +71,13 @@ impl Response<String> {
 }
 
 impl<R> Response<R> {
+    pub fn res(self) -> anyhow::Result<R> {
+        match self {
+            Self::Ok(r) => Ok(r),
+            Self::Err(e) => Err(anyhow::anyhow!(e)),
+        }
+    }
+
     pub fn unwrap(self) -> R {
         match self {
             Self::Ok(r) => r,

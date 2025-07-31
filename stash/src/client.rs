@@ -73,6 +73,10 @@ impl Client {
         .await
     }
 
+    pub async fn gc_blobs(&self) -> Result<Response<String>, Error> {
+        self.send(Cmd::GcBlobs).await
+    }
+
     pub async fn list(
         &self,
         tag: Tag,

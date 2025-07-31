@@ -1,0 +1,14 @@
+[package]
+name = "stash-client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+clap = { version = "4.5.42", features = ["derive"] }
+data-encoding = "2.9.0"
+envconfig = "0.11.0"
+iroh = "0.90.0"
+rand = "0.8.5"
+stash = { path = "../stash" }
+tokio = { version = "1.47.0", features = ["full"] }
