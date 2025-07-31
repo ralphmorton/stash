@@ -10,7 +10,7 @@ async fn node_auth() {
     let client_server = ClientServer::new(infra).await;
     let client = client_server.client;
 
-    let rsp = client.all_tags().await.unwrap();
+    let rsp = client.tags().await.unwrap();
     assert!(matches!(rsp, Response::Ok(_)));
 
     let mut rng = rand::thread_rng();
@@ -32,13 +32,13 @@ async fn node_auth() {
 
     let other_client = stash::Client::with_addr(client_endpoint, server_addr);
 
-    let rsp = other_client.all_tags().await;
+    let rsp = other_client.tags().await;
     assert!(matches!(rsp, Result::Err(_)));
 
     let rsp = client.add_client(client_sk.public()).await.unwrap();
     assert!(matches!(rsp, Response::Ok(_)));
 
-    let rsp = other_client.all_tags().await.unwrap();
+    let rsp = other_client.tags().await.unwrap();
     assert!(matches!(rsp, Response::Ok(_)));
 
     let rsp = other_client.add_client(client_sk.public()).await.unwrap();
@@ -55,6 +55,6 @@ async fn node_auth() {
     let rsp = client.remove_client(client_sk.public()).await.unwrap();
     assert!(matches!(rsp, Response::Ok(_)));
 
-    let rsp = other_client.all_tags().await;
+    let rsp = other_client.tags().await;
     assert!(matches!(rsp, Result::Err(_)));
 }

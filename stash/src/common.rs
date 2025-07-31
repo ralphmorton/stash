@@ -22,7 +22,7 @@ pub enum Cmd {
     RemoveClient {
         node: String,
     },
-    AllTags,
+    Tags,
     CreateBlob,
     DescribeBlob {
         name: String,
@@ -45,7 +45,7 @@ pub enum Cmd {
         tag: String,
         term: String,
     },
-    Tags {
+    Describe {
         name: String,
     },
     Delete {
@@ -137,6 +137,27 @@ impl From<db::FileDesc> for File {
             size: value.size as u64,
             hash: value.hash,
             created: value.created.and_utc().timestamp(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Decode, Encode, PartialEq)]
+pub struct FileDescription {
+    pub name: String,
+    pub size: u64,
+    pub hash: SHA256,
+    pub created: i64,
+    pub tags: Vec<String>,
+}
+
+impl FileDescription {
+    pub fn new(file: db::FileDesc, tags: Vec<String>) -> Self {
+        Self {
+            name: file.name,
+            size: file.size as u64,
+            hash: file.hash,
+            created: file.created.and_utc().timestamp(),
+            tags,
         }
     }
 }

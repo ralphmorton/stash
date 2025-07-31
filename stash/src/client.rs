@@ -1,7 +1,9 @@
 use bincode::Decode;
 use iroh::{Endpoint, NodeAddr, NodeId};
 
-use crate::{ALPN, Blob, Cmd, Error, File, Response, SHA256, Tag, common::Either};
+use crate::{ALPN, Blob, Cmd, Error, File, FileDescription, Response, SHA256, Tag, common::Either};
+
+const CHUNK_SIZE: usize = 1_000_000;
 
 #[derive(Clone)]
 pub struct Client {
@@ -41,8 +43,8 @@ impl Client {
         .await
     }
 
-    pub async fn all_tags(&self) -> Result<Response<Vec<String>>, Error> {
-        self.send(Cmd::AllTags).await
+    pub async fn tags(&self) -> Result<Response<Vec<String>>, Error> {
+        self.send(Cmd::Tags).await
     }
 
     pub async fn create_blob(&self) -> Result<Response<Blob>, Error> {
@@ -97,8 +99,8 @@ impl Client {
         .await
     }
 
-    pub async fn tags(&self, name: String) -> Result<Response<Vec<String>>, Error> {
-        self.send(Cmd::Tags { name }).await
+    pub async fn describe(&self, name: String) -> Result<Response<FileDescription>, Error> {
+        self.send(Cmd::Describe { name }).await
     }
 
     pub async fn delete(&self, name: String) -> Result<Response<String>, Error> {
@@ -126,7 +128,7 @@ impl Client {
         tx.finish()?;
 
         let mut data = vec![];
-        while let Some(chunk) = rx.read_chunk(100_000, true).await? {
+        while let Some(chunk) = rx.read_chunk(CHUNK_SIZE, true).await? {
             let mut bytes = chunk.bytes.to_vec();
             data.append(&mut bytes);
         }

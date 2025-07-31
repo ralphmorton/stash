@@ -61,9 +61,12 @@ async fn blob_management() {
     assert_eq!(file.name, "test-file");
     assert_eq!(file.size, 11);
 
-    let file_tags = client.tags(file.name).await.unwrap();
-    assert!(matches!(file_tags, Response::Ok(_)));
-    assert_eq!(file_tags.unwrap(), vec!["t1".to_string(), "t2".to_string()]);
+    let file_desc = client.describe(file.name).await.unwrap();
+    assert!(matches!(file_desc, Response::Ok(_)));
+    assert_eq!(
+        file_desc.unwrap().tags,
+        vec!["t1".to_string(), "t2".to_string()]
+    );
 
     let rsp = client.describe_blob(blob_name.clone()).await.unwrap();
     assert!(matches!(rsp, Response::Err(_)));

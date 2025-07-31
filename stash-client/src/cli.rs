@@ -23,17 +23,29 @@ pub enum Command {
         /// Node public key
         node: String,
     },
-    /// List all tags
-    ListTags,
+    /// List tags
+    Tags,
     /// Upload a file
     Upload {
         /// Local file path
         path: PathBuf,
-        /// Remote name
+        /// Remote file name
         name: String,
         /// Tags (comma-separated)
         #[arg(long, use_value_delimiter = true, value_delimiter = ',')]
         tags: Vec<String>,
+    },
+    /// Download a file
+    Download {
+        /// Local file path
+        path: PathBuf,
+        /// Remote file name
+        name: String,
+    },
+    /// Delete a file
+    Delete {
+        /// Remote file name
+        name: String,
     },
     /// GC blob store
     GcBlobs,

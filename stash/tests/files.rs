@@ -83,14 +83,14 @@ async fn file_management() {
     assert_eq!(&file1.size, &file3.size);
     assert_eq!(&file1.hash, &file3.hash);
 
-    let tags1 = client.tags(file1.name.clone()).await.unwrap().unwrap();
-    assert_eq!(tags1, vec!["t1".to_string(), "t2".to_string()]);
+    let desc1 = client.describe(file1.name.clone()).await.unwrap().unwrap();
+    assert_eq!(desc1.tags, vec!["t1".to_string(), "t2".to_string()]);
 
-    let tags2 = client.tags(file2.name.clone()).await.unwrap().unwrap();
-    assert_eq!(tags2, vec!["t2".to_string(), "t3".to_string()]);
+    let desc2 = client.describe(file2.name.clone()).await.unwrap().unwrap();
+    assert_eq!(desc2.tags, vec!["t2".to_string(), "t3".to_string()]);
 
-    let tags3 = client.tags(file3.name.clone()).await.unwrap().unwrap();
-    assert_eq!(tags3, vec!["t3".to_string(), "t4".to_string()]);
+    let desc3 = client.describe(file3.name.clone()).await.unwrap().unwrap();
+    assert_eq!(desc3.tags, vec!["t3".to_string(), "t4".to_string()]);
 
     let data1 = client
         .download(file1.hash.clone(), 0, 5)
@@ -122,7 +122,7 @@ async fn file_management() {
     files.sort();
     assert_eq!(files, vec![file1.hash, file2.hash.clone()]);
 
-    let tags1 = client.tags(file1.name.clone()).await.unwrap();
+    let tags1 = client.describe(file1.name.clone()).await.unwrap();
     assert!(matches!(tags1, Response::Err(_)));
     assert_eq!(tags1.err(), "No such file");
 

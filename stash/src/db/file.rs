@@ -15,6 +15,8 @@ pub struct File {
 
 #[derive(Debug, FromRow)]
 pub struct FileDesc {
+    pub id: i64,
+    pub content_id: i64,
     pub name: String,
     pub size: i64,
     pub hash: SHA256,
@@ -25,11 +27,18 @@ impl File {
     pub async fn by_name<'a, E: Executor<'a, Database = Sqlite>>(
         conn: E,
         name: &str,
-    ) -> Result<Option<File>, sqlx::Error> {
-        query_as::<_, File>("SELECT * FROM files WHERE name = $1")
-            .bind(name)
-            .fetch_optional(conn)
-            .await
+    ) -> Result<Option<FileDesc>, sqlx::Error> {
+        query_as::<_, FileDesc>(
+            r#"
+                SELECT f.id, f.content_id, f.name, c.size, c.hash, f.created
+                FROM files f
+                JOIN file_contents c ON c.id = f.content_id
+                WHERE f.name = $1
+            "#,
+        )
+        .bind(name)
+        .fetch_optional(conn)
+        .await
     }
 
     pub async fn insert<'a, E: Executor<'a, Database = Sqlite>>(
@@ -66,7 +75,7 @@ impl File {
     ) -> Result<Vec<FileDesc>, sqlx::Error> {
         query_as::<_, FileDesc>(
             r#"
-                SELECT f.name, c.size, c.hash, f.created
+                SELECT f.id, f.content_id, f.name, c.size, c.hash, f.created
                 FROM file_tags ft
                 JOIN tags t ON t.id = ft.tag_id
                 JOIN files f ON f.id = ft.file_id

@@ -11,7 +11,7 @@ async fn tags() {
     let client_server = ClientServer::new(infra).await;
     let client = client_server.client;
 
-    let rsp = client.all_tags().await.unwrap();
+    let rsp = client.tags().await.unwrap();
     assert!(matches!(rsp, Response::Ok(_)));
     assert!(rsp.unwrap().is_empty());
 
@@ -32,7 +32,7 @@ async fn tags() {
         .unwrap()
         .unwrap();
 
-    let rsp = client.all_tags().await.unwrap();
+    let rsp = client.tags().await.unwrap();
     assert!(matches!(rsp, Response::Ok(_)));
     assert_eq!(rsp.unwrap(), vec!["t1".to_string()]);
 }

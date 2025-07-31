@@ -4,7 +4,9 @@ use clap::Parser;
 use iroh::{Endpoint, NodeId, SecretKey};
 use stash::{Client, File, Tag};
 use stash_client::{Cli, Command, Config};
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+const CHUNK_SIZE: usize = 1_000_000;
 
 #[tokio::main]
 async fn main() {
@@ -21,8 +23,10 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Keygen => keygen().await,
         Command::AddClient { node } => add_client(node).await,
         Command::RemoveClient { node } => remove_client(node).await,
-        Command::ListTags => list_tags().await,
+        Command::Tags => tags().await,
         Command::Upload { path, name, tags } => upload(path, name, tags).await,
+        Command::Download { path, name } => download(path, name).await,
+        Command::Delete { name } => delete(name).await,
         Command::GcBlobs => gc_blobs().await,
         Command::ListFiles { tag, prefix } => list_files(tag, prefix).await,
         Command::SearchFiles { tag, term } => search_files(tag, term).await,
@@ -58,9 +62,9 @@ async fn remove_client(node: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn list_tags() -> anyhow::Result<()> {
+async fn tags() -> anyhow::Result<()> {
     let client = client().await?;
-    let tags = client.all_tags().await?.res()?;
+    let tags = client.tags().await?.res()?;
 
     println!("{}", tags.join("\n"));
     Ok(())
@@ -76,7 +80,7 @@ async fn upload(path: PathBuf, name: String, tags: Vec<String>) -> anyhow::Resul
     let mut file = tokio::fs::File::open(path).await?;
     let blob = client.create_blob().await?.res()?;
 
-    let mut buf = vec![0; 1_000_000];
+    let mut buf = vec![0; CHUNK_SIZE];
     loop {
         let n = file.read(&mut buf).await?;
         if n == 0 {
@@ -91,6 +95,39 @@ async fn upload(path: PathBuf, name: String, tags: Vec<String>) -> anyhow::Resul
 
     let file = client.commit_blob(blob.name, name, tags).await?.res()?;
     println!("{file:?}");
+    Ok(())
+}
+
+async fn download(path: PathBuf, name: String) -> anyhow::Result<()> {
+    let client = client().await?;
+    let remote_file = client.describe(name).await?.res()?;
+
+    let temp_path = format!("{}.stashdl", path.display());
+    let mut local_file = tokio::fs::File::create(&temp_path).await?;
+
+    let mut cursor = 0;
+    while cursor < remote_file.size {
+        let len = std::cmp::min(CHUNK_SIZE as u64, remote_file.size - cursor);
+        let chunk = client
+            .download(remote_file.hash.clone(), cursor, len)
+            .await?
+            .res()?;
+        local_file.write_all(&chunk).await?;
+        cursor += len;
+    }
+
+    local_file.flush().await?;
+    tokio::fs::rename(temp_path, path).await?;
+
+    println!("OK");
+    Ok(())
+}
+
+async fn delete(name: String) -> anyhow::Result<()> {
+    let client = client().await?;
+    let rsp = client.delete(name).await?.res()?;
+
+    println!("{rsp}");
     Ok(())
 }
 
