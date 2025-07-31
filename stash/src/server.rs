@@ -5,7 +5,7 @@ use iroh::{
     endpoint::Connection,
     protocol::{AcceptError, ProtocolHandler},
 };
-use sqlx::SqlitePool;
+use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use uuid::Uuid;
 
@@ -41,7 +41,10 @@ impl<A: NodeAuth> Debug for Server<A> {
 }
 
 impl<A: NodeAuth> Server<A> {
-    pub fn new(auth: A, root: PathBuf, db: SqlitePool) -> Result<Self, Error> {
+    pub async fn new(auth: A, root: PathBuf) -> Result<Self, Error> {
+        let db = root.join("server.db");
+        let db = setup_db(db.to_str().unwrap()).await?;
+
         let i = Self {
             auth,
             root: root.canonicalize()?,
@@ -425,4 +428,14 @@ impl<A: NodeAuth + Send + Sync + 'static> ProtocolHandler for Server<A> {
 
         Ok(())
     }
+}
+
+async fn setup_db(db: &str) -> Result<SqlitePool, sqlx::Error> {
+    let opts = SqliteConnectOptions::new()
+        .filename(db)
+        .create_if_missing(true);
+
+    let pool = SqlitePool::connect_with(opts).await?;
+    sqlx::migrate!("./migrations").run(&pool).await?;
+    Ok(pool)
 }

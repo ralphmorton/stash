@@ -4,13 +4,11 @@ use std::{
 };
 
 use iroh::{Endpoint, NodeId, SecretKey, Watcher, protocol::Router};
-use sqlx::SqlitePool;
 use stash::{Client, NodeAuth, Server};
 use uuid::Uuid;
 
 pub struct TestInfra {
     pub root: PathBuf,
-    pub pool: SqlitePool,
 }
 
 impl Drop for TestInfra {
@@ -25,25 +23,7 @@ impl TestInfra {
         let root = PathBuf::from(format!("test-infra-{}", Uuid::new_v4().to_string()));
         std::fs::create_dir(&root).unwrap();
 
-        let db = format!("{}/test.db", root.display());
-
-        std::process::Command::new("diesel")
-            .arg("migration")
-            .arg("run")
-            .arg("--migration-dir")
-            .arg("./migrations")
-            .arg("--database-url")
-            .arg(&db)
-            .spawn()
-            .unwrap()
-            .wait()
-            .unwrap();
-
-        std::thread::sleep(std::time::Duration::from_secs(2));
-
-        let pool = SqlitePool::connect(&db).await.unwrap();
-
-        TestInfra { root, pool }
+        TestInfra { root }
     }
 
     pub async fn blobs(&self) -> Vec<String> {
@@ -139,8 +119,8 @@ impl ClientServer {
                         allow: Arc::new(RwLock::new(vec![])),
                     },
                     infra.root.clone(),
-                    infra.pool.clone(),
                 )
+                .await
                 .unwrap(),
             )
             .spawn();

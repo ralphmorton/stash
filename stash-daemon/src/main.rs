@@ -4,7 +4,7 @@ mod config;
 use auth::Auth;
 use config::Config;
 use iroh::{Endpoint, protocol::Router};
-use sqlx::SqlitePool;
+use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
 use stash::Server;
 use tokio::signal::unix::{SignalKind, signal};
 
@@ -13,7 +13,9 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().unwrap();
     let config = Config::build();
 
-    let daemon_db = SqlitePool::connect(&config.db).await?;
+    let daemon_db = setup_db(&config.db).await;
+    let daemon_db = daemon_db?;
+
     let auth = Auth::new(daemon_db, config.admin).await?;
 
     let server_db_path = config.root.join("server.db");
@@ -36,4 +38,14 @@ async fn main() -> anyhow::Result<()> {
     router.shutdown().await?;
 
     Ok(())
+}
+
+async fn setup_db(db: &str) -> Result<SqlitePool, sqlx::Error> {
+    let opts = SqliteConnectOptions::new()
+        .filename(db)
+        .create_if_missing(true);
+
+    let pool = SqlitePool::connect_with(opts).await?;
+    sqlx::migrate!("./migrations").run(&pool).await?;
+    Ok(pool)
 }
