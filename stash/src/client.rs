@@ -1,3 +1,4 @@
+use bincode::Decode;
 use iroh::{Endpoint, NodeAddr, NodeId};
 
 use crate::{ALPN, Blob, Cmd, Error, File, Response, SHA256, Tag, common::Either};
@@ -27,85 +28,33 @@ impl Client {
     }
 
     pub async fn add_client(&self, node: NodeId) -> Result<Response<String>, Error> {
-        let mut bytes = vec![];
-        self.request(
-            Cmd::AddClient {
-                node: format!("{node}"),
-            },
-            |mut chunk| {
-                bytes.append(&mut chunk);
-                Ok(())
-            },
-        )
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::AddClient {
+            node: format!("{node}"),
+        })
+        .await
     }
 
     pub async fn remove_client(&self, node: NodeId) -> Result<Response<String>, Error> {
-        let mut bytes = vec![];
-        self.request(
-            Cmd::RemoveClient {
-                node: format!("{node}"),
-            },
-            |mut chunk| {
-                bytes.append(&mut chunk);
-                Ok(())
-            },
-        )
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::RemoveClient {
+            node: format!("{node}"),
+        })
+        .await
     }
 
     pub async fn all_tags(&self) -> Result<Response<Vec<String>>, Error> {
-        let mut bytes = vec![];
-        self.request(Cmd::AllTags, |mut chunk| {
-            bytes.append(&mut chunk);
-            Ok(())
-        })
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::AllTags).await
     }
 
     pub async fn create_blob(&self) -> Result<Response<Blob>, Error> {
-        let mut bytes = vec![];
-        self.request(Cmd::CreateBlob, |mut chunk| {
-            bytes.append(&mut chunk);
-            Ok(())
-        })
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::CreateBlob).await
     }
 
     pub async fn describe_blob(&self, name: String) -> Result<Response<Blob>, Error> {
-        let mut bytes = vec![];
-        self.request(Cmd::DescribeBlob { name }, |mut chunk| {
-            bytes.append(&mut chunk);
-            Ok(())
-        })
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::DescribeBlob { name }).await
     }
 
     pub async fn append_blob(&self, name: String, data: Vec<u8>) -> Result<Response<Blob>, Error> {
-        let mut bytes = vec![];
-        self.request(Cmd::AppendBlob { name, data }, |mut chunk| {
-            bytes.append(&mut chunk);
-            Ok(())
-        })
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::AppendBlob { name, data }).await
     }
 
     pub async fn commit_blob(
@@ -116,22 +65,12 @@ impl Client {
     ) -> Result<Response<File>, Error> {
         let tags = tags.into_iter().map(Into::into).collect();
 
-        let mut bytes = vec![];
-        self.request(
-            Cmd::CommitBlob {
-                name,
-                file_name,
-                tags,
-            },
-            |mut chunk| {
-                bytes.append(&mut chunk);
-                Ok(())
-            },
-        )
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::CommitBlob {
+            name,
+            file_name,
+            tags,
+        })
+        .await
     }
 
     pub async fn list(
@@ -139,63 +78,27 @@ impl Client {
         tag: Tag,
         prefix: Option<String>,
     ) -> Result<Response<Vec<File>>, Error> {
-        let mut bytes = vec![];
-        self.request(
-            Cmd::List {
-                tag: tag.into(),
-                prefix,
-            },
-            |mut chunk| {
-                bytes.append(&mut chunk);
-                Ok(())
-            },
-        )
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::List {
+            tag: tag.into(),
+            prefix,
+        })
+        .await
     }
 
     pub async fn search(&self, tag: Tag, term: String) -> Result<Response<Vec<File>>, Error> {
-        let mut bytes = vec![];
-        self.request(
-            Cmd::Search {
-                tag: tag.into(),
-                term,
-            },
-            |mut chunk| {
-                bytes.append(&mut chunk);
-                Ok(())
-            },
-        )
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::Search {
+            tag: tag.into(),
+            term,
+        })
+        .await
     }
 
     pub async fn tags(&self, name: String) -> Result<Response<Vec<String>>, Error> {
-        let mut bytes = vec![];
-        self.request(Cmd::Tags { name }, |mut chunk| {
-            bytes.append(&mut chunk);
-            Ok(())
-        })
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::Tags { name }).await
     }
 
     pub async fn delete(&self, name: String) -> Result<Response<String>, Error> {
-        let mut bytes = vec![];
-        self.request(Cmd::Delete { name }, |mut chunk| {
-            bytes.append(&mut chunk);
-            Ok(())
-        })
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::Delete { name }).await
     }
 
     pub async fn download(
@@ -204,23 +107,10 @@ impl Client {
         start: u64,
         len: u64,
     ) -> Result<Response<Vec<u8>>, Error> {
-        let mut bytes = vec![];
-        self.request(Cmd::Download { hash, start, len }, |mut chunk| {
-            bytes.append(&mut chunk);
-            Ok(())
-        })
-        .await?;
-
-        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
-        Ok(rsp)
+        self.send(Cmd::Download { hash, start, len }).await
     }
 
-    async fn request<F: FnMut(Vec<u8>) -> Result<(), Error>>(
-        &self,
-        cmd: Cmd,
-        f: F,
-    ) -> Result<(), Error> {
-        let mut f = f;
+    async fn send<R: Decode<()>>(&self, cmd: Cmd) -> Result<R, Error> {
         let json = bincode::encode_to_vec(&cmd, self.bincode_config)?;
         let conn = match &self.server {
             Either::Left(node_id) => self.endpoint.connect(node_id.clone(), ALPN).await?,
@@ -231,13 +121,15 @@ impl Client {
         tx.write_all(&json).await?;
         tx.finish()?;
 
+        let mut data = vec![];
         while let Some(chunk) = rx.read_chunk(100_000, true).await? {
-            let bytes = chunk.bytes.to_vec();
-            f(bytes)?;
+            let mut bytes = chunk.bytes.to_vec();
+            data.append(&mut bytes);
         }
 
         conn.close(0u32.into(), b"bye");
 
-        Ok(())
+        let rsp = bincode::decode_from_slice(&data, self.bincode_config)?.0;
+        Ok(rsp)
     }
 }
