@@ -50,7 +50,7 @@ pub enum Command {
     /// GC blob store
     GcBlobs,
     /// List files
-    ListFiles {
+    List {
         /// Tag
         tag: String,
         /// Prefix (optional)
@@ -58,7 +58,7 @@ pub enum Command {
         prefix: Option<String>,
     },
     /// Search files
-    SearchFiles {
+    Search {
         /// Tag
         tag: String,
         /// Term

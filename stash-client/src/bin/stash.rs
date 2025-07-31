@@ -1,6 +1,7 @@
-use std::{path::PathBuf, str::FromStr};
+use std::{fmt::Write, os::unix::fs::MetadataExt, path::PathBuf, str::FromStr};
 
 use clap::Parser;
+use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use iroh::{Endpoint, NodeId, SecretKey};
 use stash::{Client, File, Tag};
 use stash_client::{Cli, Command, Config};
@@ -28,8 +29,8 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Download { path, name } => download(path, name).await,
         Command::Delete { name } => delete(name).await,
         Command::GcBlobs => gc_blobs().await,
-        Command::ListFiles { tag, prefix } => list_files(tag, prefix).await,
-        Command::SearchFiles { tag, term } => search_files(tag, term).await,
+        Command::List { tag, prefix } => list(tag, prefix).await,
+        Command::Search { tag, term } => search(tag, term).await,
     }
 }
 
@@ -78,10 +79,16 @@ async fn upload(path: PathBuf, name: String, tags: Vec<String>) -> anyhow::Resul
 
     let client = client().await?;
     let mut file = tokio::fs::File::open(path).await?;
+    let meta = file.metadata().await?;
     let blob = client.create_blob().await?.res()?;
+
+    let mut written = 0;
+    let progress = progress_bar(meta.size());
 
     let mut buf = vec![0; CHUNK_SIZE];
     loop {
+        progress.set_position(written as u64);
+
         let n = file.read(&mut buf).await?;
         if n == 0 {
             break;
@@ -91,10 +98,14 @@ async fn upload(path: PathBuf, name: String, tags: Vec<String>) -> anyhow::Resul
             .append_blob(blob.name.clone(), buf[0..n].to_vec())
             .await?
             .res()?;
+
+        written += n;
     }
 
     let file = client.commit_blob(blob.name, name, tags).await?.res()?;
-    println!("{file:?}");
+    progress.finish();
+
+    println!("{}", display_file(&file));
     Ok(())
 }
 
@@ -105,8 +116,11 @@ async fn download(path: PathBuf, name: String) -> anyhow::Result<()> {
     let temp_path = format!("{}.stashdl", path.display());
     let mut local_file = tokio::fs::File::create(&temp_path).await?;
 
+    let progress = progress_bar(remote_file.size);
+
     let mut cursor = 0;
     while cursor < remote_file.size {
+        progress.set_position(cursor);
         let len = std::cmp::min(CHUNK_SIZE as u64, remote_file.size - cursor);
         let chunk = client
             .download(remote_file.hash.clone(), cursor, len)
@@ -118,6 +132,7 @@ async fn download(path: PathBuf, name: String) -> anyhow::Result<()> {
 
     local_file.flush().await?;
     tokio::fs::rename(temp_path, path).await?;
+    progress.finish();
 
     println!("OK");
     Ok(())
@@ -139,7 +154,7 @@ async fn gc_blobs() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn list_files(tag: String, prefix: Option<String>) -> anyhow::Result<()> {
+async fn list(tag: String, prefix: Option<String>) -> anyhow::Result<()> {
     let tag = parse_tag(&tag)?;
     let client = client().await?;
 
@@ -151,7 +166,7 @@ async fn list_files(tag: String, prefix: Option<String>) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn search_files(tag: String, term: String) -> anyhow::Result<()> {
+async fn search(tag: String, term: String) -> anyhow::Result<()> {
     let tag = parse_tag(&tag)?;
     let client = client().await?;
 
@@ -184,4 +199,15 @@ fn display_file(file: &File) -> String {
         "{} {} {}\t{}",
         file.created, file.hash, file.size, file.name
     )
+}
+
+fn progress_bar(total: u64) -> ProgressBar {
+    let progress = ProgressBar::new(total);
+    progress
+        .set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+        .unwrap()
+        .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+        .progress_chars("#>-"));
+
+    progress
 }

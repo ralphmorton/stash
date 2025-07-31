@@ -31,7 +31,6 @@ pub struct Server<A: NodeAuth> {
 impl<A: NodeAuth> Debug for Server<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Server {{ root: {:?}, db: {:?} }}", self.root, self.db)?;
-
         Ok(())
     }
 }
