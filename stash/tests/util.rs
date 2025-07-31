@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
 use iroh::{Endpoint, NodeId, SecretKey, Watcher, protocol::Router};
 use sqlx::SqlitePool;
@@ -70,11 +73,38 @@ impl TestInfra {
     }
 }
 
-struct TestAuth(NodeId);
+struct TestAuth {
+    admin: NodeId,
+    allow: Arc<RwLock<Vec<NodeId>>>,
+}
 
 impl NodeAuth for TestAuth {
     async fn allow(&self, node: NodeId) -> bool {
-        node == self.0
+        if node == self.admin {
+            return true;
+        }
+
+        self.allow.read().unwrap().iter().any(|n| n == &node)
+    }
+
+    async fn add(&self, caller: NodeId, node: NodeId) -> bool {
+        if caller != self.admin {
+            return false;
+        }
+
+        self.allow.write().unwrap().push(node);
+        true
+    }
+
+    async fn remove(&self, caller: NodeId, node: NodeId) -> bool {
+        if caller != self.admin {
+            return false;
+        }
+
+        let mut nodes = self.allow.write().unwrap();
+        let allowed = nodes.clone().into_iter().filter(|n| n != &node).collect();
+        *nodes = allowed;
+        true
     }
 }
 
@@ -104,7 +134,10 @@ impl ClientServer {
             .accept(
                 stash::ALPN,
                 Server::new(
-                    TestAuth(client_sk.public()),
+                    TestAuth {
+                        admin: client_sk.public(),
+                        allow: Arc::new(RwLock::new(vec![])),
+                    },
                     infra.root.clone(),
                     infra.pool.clone(),
                 )

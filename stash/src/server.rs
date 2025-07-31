@@ -18,6 +18,8 @@ const FILE_DIR: &'static str = "files";
 
 pub trait NodeAuth {
     fn allow(&self, node: NodeId) -> impl Future<Output = bool> + Send;
+    fn add(&self, caller: NodeId, node: NodeId) -> impl Future<Output = bool> + Send;
+    fn remove(&self, caller: NodeId, node: NodeId) -> impl Future<Output = bool> + Send;
 }
 
 #[derive(Clone)]
@@ -48,10 +50,18 @@ impl<A: NodeAuth> Server<A> {
         Ok(i)
     }
 
-    async fn handle(&self, cmd: Cmd) -> Result<Vec<u8>, Error> {
+    async fn handle(&self, caller: NodeId, cmd: Cmd) -> Result<Vec<u8>, Error> {
         tracing::info!(cmd = ?cmd, "handle");
 
         let json = match cmd {
+            Cmd::AddClient { node } => {
+                let rsp = self.add_client(caller, node).await?;
+                bincode::encode_to_vec(&rsp, self.bincode_config)?
+            }
+            Cmd::RemoveClient { node } => {
+                let rsp = self.remove_client(caller, node).await?;
+                bincode::encode_to_vec(&rsp, self.bincode_config)?
+            }
             Cmd::AllTags => {
                 let tags = self.all_tags().await?;
                 bincode::encode_to_vec(&tags, self.bincode_config)?
@@ -73,7 +83,7 @@ impl<A: NodeAuth> Server<A> {
                 file_name,
                 tags,
             } => {
-                let file = self.commit_blob(name, file_name, tags).await?;
+                let file = self.commit_blob(caller, name, file_name, tags).await?;
                 bincode::encode_to_vec(&file, self.bincode_config)?
             }
             Cmd::List { tag, prefix } => {
@@ -99,6 +109,26 @@ impl<A: NodeAuth> Server<A> {
         };
 
         Ok(json)
+    }
+
+    async fn add_client(&self, caller: NodeId, node: String) -> Result<Response<String>, Error> {
+        let node = NodeId::from_str(&node)?;
+
+        if self.auth.add(caller, node).await {
+            Ok(Response::ok())
+        } else {
+            Ok(Response::Err("Unauthorized".to_string()))
+        }
+    }
+
+    async fn remove_client(&self, caller: NodeId, node: String) -> Result<Response<String>, Error> {
+        let node = NodeId::from_str(&node)?;
+
+        if self.auth.remove(caller, node).await {
+            Ok(Response::ok())
+        } else {
+            Ok(Response::Err("Unauthorized".to_string()))
+        }
     }
 
     async fn all_tags(&self) -> Result<Response<Vec<String>>, Error> {
@@ -152,6 +182,7 @@ impl<A: NodeAuth> Server<A> {
 
     async fn commit_blob(
         &self,
+        caller: NodeId,
         name: String,
         file_name: String,
         tags: Vec<String>,
@@ -178,14 +209,17 @@ impl<A: NodeAuth> Server<A> {
         let meta = tokio::fs::metadata(&blob_path).await?;
         let hash = sha256::digest(&blob_path).await?;
         let file_path = self.file_path(&hash)?;
+        let node = format!("{caller}");
 
         let mut transaction = self.db.begin().await?;
 
         let content = match db::FileContent::by_hash(&mut *transaction, &hash).await? {
             Some(content) => content,
-            None => db::FileContent::insert(&mut *transaction, meta.size() as i64, &hash).await?,
+            None => {
+                db::FileContent::insert(&mut *transaction, meta.size() as i64, &hash, &node).await?
+            }
         };
-        let file = db::File::insert(&mut *transaction, &file_name, content.id).await?;
+        let file = db::File::insert(&mut *transaction, &file_name, content.id, &node).await?;
 
         for tag in tags.iter() {
             let tag = match db::Tag::by_name(&mut *transaction, tag).await? {
@@ -337,7 +371,7 @@ impl<A: NodeAuth + Send + Sync + 'static> ProtocolHandler for Server<A> {
             .map_err(AcceptError::from_err)?
             .0;
 
-        let rsp = self.handle(cmd.clone()).await;
+        let rsp = self.handle(node_id, cmd.clone()).await;
         if rsp.is_err() {
             tracing::warn!(cmd = ?cmd, rsp = ?rsp, "handle_failed");
         }

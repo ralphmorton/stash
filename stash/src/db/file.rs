@@ -9,6 +9,7 @@ pub struct File {
     pub id: i64,
     pub name: String,
     pub content_id: i64,
+    pub uploader: String,
     pub created: NaiveDateTime,
 }
 
@@ -35,12 +36,14 @@ impl File {
         conn: E,
         name: &str,
         content_id: i64,
+        uploader: &str,
     ) -> Result<File, sqlx::Error> {
         query_as::<_, File>(
-            "INSERT INTO files (name, content_id, created) VALUES ($1, $2, datetime('now')) RETURNING *",
+            "INSERT INTO files (name, content_id, uploader, created) VALUES ($1, $2, $3, datetime('now')) RETURNING *",
         )
         .bind(name)
         .bind(content_id)
+        .bind(uploader)
         .fetch_one(conn)
         .await
     }

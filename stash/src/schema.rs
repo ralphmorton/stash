@@ -5,6 +5,7 @@ diesel::table! {
         id -> Nullable<Integer>,
         size -> Integer,
         hash -> Text,
+        uploader -> Text,
         created -> Text,
     }
 }
@@ -22,6 +23,7 @@ diesel::table! {
         id -> Nullable<Integer>,
         name -> Text,
         content_id -> Integer,
+        uploader -> Text,
         created -> Text,
     }
 }

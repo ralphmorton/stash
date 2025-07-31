@@ -26,6 +26,40 @@ impl Client {
         }
     }
 
+    pub async fn add_client(&self, node: NodeId) -> Result<Response<String>, Error> {
+        let mut bytes = vec![];
+        self.request(
+            Cmd::AddClient {
+                node: format!("{node}"),
+            },
+            |mut chunk| {
+                bytes.append(&mut chunk);
+                Ok(())
+            },
+        )
+        .await?;
+
+        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
+        Ok(rsp)
+    }
+
+    pub async fn remove_client(&self, node: NodeId) -> Result<Response<String>, Error> {
+        let mut bytes = vec![];
+        self.request(
+            Cmd::RemoveClient {
+                node: format!("{node}"),
+            },
+            |mut chunk| {
+                bytes.append(&mut chunk);
+                Ok(())
+            },
+        )
+        .await?;
+
+        let rsp = bincode::decode_from_slice(&bytes, self.bincode_config)?.0;
+        Ok(rsp)
+    }
+
     pub async fn all_tags(&self) -> Result<Response<Vec<String>>, Error> {
         let mut bytes = vec![];
         self.request(Cmd::AllTags, |mut chunk| {

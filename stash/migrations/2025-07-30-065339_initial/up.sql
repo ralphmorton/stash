@@ -10,6 +10,7 @@ CREATE TABLE file_contents (
     id INTEGER PRIMARY KEY,
     size INTEGER NOT NULL,
     hash TEXT NOT NULL,
+    uploader TEXT NOT NULL,
     created TEXT NOT NULL
 );
 
@@ -19,6 +20,7 @@ CREATE TABLE files (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     content_id INTEGER NOT NULL,
+    uploader TEXT NOT NULL,
     created TEXT NOT NULL,
     FOREIGN KEY (content_id) REFERENCES file_contents(id) ON DELETE CASCADE
 );

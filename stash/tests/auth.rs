@@ -30,8 +30,31 @@ async fn node_auth() {
         .await
         .unwrap();
 
-    let unauthorized_client = stash::Client::with_addr(client_endpoint, server_addr);
+    let other_client = stash::Client::with_addr(client_endpoint, server_addr);
 
-    let rsp = unauthorized_client.all_tags().await;
+    let rsp = other_client.all_tags().await;
+    assert!(matches!(rsp, Result::Err(_)));
+
+    let rsp = client.add_client(client_sk.public()).await.unwrap();
+    assert!(matches!(rsp, Response::Ok(_)));
+
+    let rsp = other_client.all_tags().await.unwrap();
+    assert!(matches!(rsp, Response::Ok(_)));
+
+    let rsp = other_client.add_client(client_sk.public()).await.unwrap();
+    assert!(matches!(rsp, Response::Err(_)));
+    assert_eq!(rsp.err(), "Unauthorized");
+
+    let rsp = other_client
+        .remove_client(client_sk.public())
+        .await
+        .unwrap();
+    assert!(matches!(rsp, Response::Err(_)));
+    assert_eq!(rsp.err(), "Unauthorized");
+
+    let rsp = client.remove_client(client_sk.public()).await.unwrap();
+    assert!(matches!(rsp, Response::Ok(_)));
+
+    let rsp = other_client.all_tags().await;
     assert!(matches!(rsp, Result::Err(_)));
 }

@@ -5,6 +5,7 @@ pub enum Error {
     CloseError(iroh::endpoint::ClosedStream),
     ReadError(iroh::endpoint::ReadError),
     WriteError(iroh::endpoint::WriteError),
+    KeyParsingError(iroh::KeyParsingError),
     DecodeError(bincode::error::DecodeError),
     EncodeError(bincode::error::EncodeError),
     IoError(std::io::Error),
@@ -17,8 +18,9 @@ impl std::fmt::Display for Error {
             Self::ConnectionError(e) => write!(f, "ConnectionError: {:?}", e),
             Self::ConnectError(e) => write!(f, "ConnectError: {:?}", e),
             Self::CloseError(e) => write!(f, "CloseError: {:?}", e),
-            Self::WriteError(e) => write!(f, "WriteError: {:?}", e),
             Self::ReadError(e) => write!(f, "ReadError: {:?}", e),
+            Self::WriteError(e) => write!(f, "WriteError: {:?}", e),
+            Self::KeyParsingError(e) => write!(f, "KeyParsingError: {:?}", e),
             Self::DecodeError(e) => write!(f, "DecodeError: {:?}", e),
             Self::EncodeError(e) => write!(f, "EncodeError: {:?}", e),
             Self::IoError(e) => write!(f, "IoError: {:?}", e),
@@ -56,6 +58,12 @@ impl From<iroh::endpoint::ReadError> for Error {
 impl From<iroh::endpoint::WriteError> for Error {
     fn from(value: iroh::endpoint::WriteError) -> Self {
         Self::WriteError(value)
+    }
+}
+
+impl From<iroh::KeyParsingError> for Error {
+    fn from(value: iroh::KeyParsingError) -> Self {
+        Self::KeyParsingError(value)
     }
 }
 
