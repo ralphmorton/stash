@@ -156,6 +156,8 @@ async fn read(name: String) -> anyhow::Result<()> {
     let client = client().await?;
     let remote_file = client.describe(name).await?.res()?;
 
+    let mut stdout = tokio::io::stdout();
+
     let mut cursor = 0;
     while cursor < remote_file.size {
         let len = std::cmp::min(CHUNK_SIZE as u64, remote_file.size - cursor);
@@ -164,10 +166,12 @@ async fn read(name: String) -> anyhow::Result<()> {
             .await?
             .res()?;
 
-        tokio::io::stdout().write(&chunk).await?;
+        stdout.write(&chunk).await?;
 
         cursor += len;
     }
+
+    stdout.flush().await?;
 
     Ok(())
 }
