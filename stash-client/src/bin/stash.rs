@@ -25,8 +25,14 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         Command::AddClient { node } => add_client(node).await,
         Command::RemoveClient { node } => remove_client(node).await,
         Command::Tags => tags().await,
-        Command::Upload { path, name, tags } => upload(path, name, tags).await,
+        Command::Upload {
+            path,
+            name,
+            tags,
+            replace,
+        } => upload(path, name, tags, replace).await,
         Command::Download { path, name } => download(path, name).await,
+        Command::Read { name } => read(name).await,
         Command::Delete { name } => delete(name).await,
         Command::GcBlobs => gc_blobs().await,
         Command::List { tag, prefix } => list(tag, prefix).await,
@@ -71,7 +77,12 @@ async fn tags() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn upload(path: PathBuf, name: String, tags: Vec<String>) -> anyhow::Result<()> {
+async fn upload(
+    path: PathBuf,
+    name: String,
+    tags: Vec<String>,
+    replace: bool,
+) -> anyhow::Result<()> {
     let tags = tags
         .iter()
         .map(|t| parse_tag(t))
@@ -102,7 +113,10 @@ async fn upload(path: PathBuf, name: String, tags: Vec<String>) -> anyhow::Resul
         written += n;
     }
 
-    let file = client.commit_blob(blob.name, name, tags).await?.res()?;
+    let file = client
+        .commit_blob(blob.name, name, tags, replace)
+        .await?
+        .res()?;
     progress.finish();
 
     println!("{}", display_file(&file));
@@ -135,6 +149,26 @@ async fn download(path: PathBuf, name: String) -> anyhow::Result<()> {
     progress.finish();
 
     println!("OK");
+    Ok(())
+}
+
+async fn read(name: String) -> anyhow::Result<()> {
+    let client = client().await?;
+    let remote_file = client.describe(name).await?.res()?;
+
+    let mut cursor = 0;
+    while cursor < remote_file.size {
+        let len = std::cmp::min(CHUNK_SIZE as u64, remote_file.size - cursor);
+        let chunk = client
+            .download(remote_file.hash.clone(), cursor, len)
+            .await?
+            .res()?;
+
+        tokio::io::stdout().write(&chunk).await?;
+
+        cursor += len;
+    }
+
     Ok(())
 }
 

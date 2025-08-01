@@ -64,6 +64,7 @@ impl Client {
         name: String,
         file_name: String,
         tags: Vec<Tag>,
+        replace: bool,
     ) -> Result<Response<File>, Error> {
         let tags = tags.into_iter().map(Into::into).collect();
 
@@ -71,6 +72,7 @@ impl Client {
             name,
             file_name,
             tags,
+            replace,
         })
         .await
     }

@@ -52,6 +52,7 @@ async fn blob_management() {
             blob_name.clone(),
             "test-file".to_string(),
             vec![Tag::from_str("t1").unwrap(), Tag::from_str("t2").unwrap()],
+            false,
         )
         .await
         .unwrap();

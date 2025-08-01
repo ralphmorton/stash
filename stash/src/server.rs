@@ -82,8 +82,12 @@ impl<A: NodeAuth> Server<A> {
                 name,
                 file_name,
                 tags,
+                replace,
             } => {
-                let file = self.commit_blob(caller, name, file_name, tags).await?;
+                let file = self
+                    .commit_blob(caller, name, file_name, tags, replace)
+                    .await?;
+
                 bincode::encode_to_vec(&file, self.bincode_config)?
             }
             Cmd::GcBlobs => {
@@ -190,6 +194,7 @@ impl<A: NodeAuth> Server<A> {
         name: String,
         file_name: String,
         tags: Vec<String>,
+        replace: bool,
     ) -> Result<Response<File>, Error> {
         if tags.is_empty() {
             return Ok(Response::Err(format!("At least one tag is required")));
@@ -201,7 +206,8 @@ impl<A: NodeAuth> Server<A> {
             }
         }
 
-        if let Some(_) = db::File::by_name(&self.db, &file_name).await? {
+        let existing_file = db::File::by_name(&self.db, &file_name).await?;
+        if !replace && existing_file.is_some() {
             return Ok(Response::Err(format!("File already exists")));
         }
 
@@ -216,6 +222,10 @@ impl<A: NodeAuth> Server<A> {
         let node = format!("{caller}");
 
         let mut transaction = self.db.begin().await?;
+
+        if let Some(existing_file) = existing_file.as_ref() {
+            db::File::delete(&mut *transaction, existing_file.id).await?;
+        }
 
         let content = match db::FileContent::by_hash(&mut *transaction, &hash).await? {
             Some(content) => content,
@@ -242,6 +252,10 @@ impl<A: NodeAuth> Server<A> {
         };
 
         tokio::fs::rename(&blob_path, &file_path).await?;
+        if let Some(existing_file) = existing_file {
+            self.gc_content(&mut transaction, existing_file.content_id)
+                .await?;
+        }
 
         transaction.commit().await?;
         Ok(Response::Ok(file))

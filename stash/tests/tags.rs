@@ -27,6 +27,7 @@ async fn tags() {
             blob.name,
             "f".to_string(),
             vec![Tag::from_str("t1").unwrap()],
+            false,
         )
         .await
         .unwrap()

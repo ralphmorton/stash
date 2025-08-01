@@ -34,11 +34,19 @@ pub enum Command {
         /// Tags (comma-separated)
         #[arg(long, use_value_delimiter = true, value_delimiter = ',')]
         tags: Vec<String>,
+        /// Replace existing file?
+        #[arg(long, default_value_t = false)]
+        replace: bool,
     },
     /// Download a file
     Download {
         /// Local file path
         path: PathBuf,
+        /// Remote file name
+        name: String,
+    },
+    /// Read a file, printing its contents to stdout
+    Read {
         /// Remote file name
         name: String,
     },
