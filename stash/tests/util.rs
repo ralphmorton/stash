@@ -125,7 +125,7 @@ impl ClientServer {
             )
             .spawn();
 
-        let server_addr = server.endpoint().node_addr().initialized().await.unwrap();
+        let server_addr = server.endpoint().node_addr().initialized().await;
 
         let client_endpoint = Endpoint::builder()
             .discovery_n0()

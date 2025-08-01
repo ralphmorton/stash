@@ -27,8 +27,7 @@ async fn node_auth() {
         .endpoint()
         .node_addr()
         .initialized()
-        .await
-        .unwrap();
+        .await;
 
     let other_client = stash::Client::with_addr(client_endpoint, server_addr);
 
