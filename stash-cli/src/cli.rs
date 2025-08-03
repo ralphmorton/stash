@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 #[command(about = "File server")]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Cmd,
+    pub cmd: Cmd,
 }
 
 #[derive(Debug, Subcommand)]
