@@ -29,20 +29,6 @@ impl Client {
         }
     }
 
-    pub async fn add_client(&self, node: NodeId) -> Result<Response<String>, Error> {
-        self.send(Cmd::AddClient {
-            node: format!("{node}"),
-        })
-        .await
-    }
-
-    pub async fn remove_client(&self, node: NodeId) -> Result<Response<String>, Error> {
-        self.send(Cmd::RemoveClient {
-            node: format!("{node}"),
-        })
-        .await
-    }
-
     pub async fn tags(&self) -> Result<Response<Vec<String>>, Error> {
         self.send(Cmd::Tags).await
     }

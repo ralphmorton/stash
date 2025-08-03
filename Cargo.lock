@@ -1127,6 +1127,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "gatekeeper"
+version = "0.1.0"
+source = "git+https://github.com/ralphmorton/gatekeeper.git#0356a08c0b90d88f2690401ba038ea1b9096f53e"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "chrono",
+ "clap",
+ "data-encoding",
+ "iroh",
+ "rand 0.8.5",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "generator"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3739,8 +3757,8 @@ dependencies = [
  "anyhow",
  "dotenvy",
  "envconfig",
+ "gatekeeper",
  "iroh",
- "sqlx",
  "stash",
  "tokio",
  "tracing",

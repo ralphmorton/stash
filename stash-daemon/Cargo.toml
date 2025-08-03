@@ -7,13 +7,8 @@ edition = "2024"
 anyhow = "1.0.98"
 dotenvy = "0.15.7"
 envconfig = "0.11.0"
+gatekeeper = { git = "https://github.com/ralphmorton/gatekeeper.git" }
 iroh = "0.91.0"
-sqlx = { version = "0.8.6", features = [
-    "chrono",
-    "sqlite",
-    "runtime-tokio",
-    "tls-rustls-ring-native-roots",
-] }
 stash = { path = "../stash" }
 tokio = { version = "1.47.0", features = ["full"] }
 tracing = "0.1.41"

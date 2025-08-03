@@ -1,7 +1,4 @@
-use std::{
-    path::PathBuf,
-    sync::{Arc, RwLock},
-};
+use std::path::PathBuf;
 
 use iroh::{Endpoint, NodeId, SecretKey, Watcher, protocol::Router};
 use stash::{Client, NodeAuth, Server};
@@ -54,37 +51,12 @@ impl TestInfra {
 }
 
 struct TestAuth {
-    admin: NodeId,
-    allow: Arc<RwLock<Vec<NodeId>>>,
+    allow: NodeId,
 }
 
 impl NodeAuth for TestAuth {
     async fn allow(&self, node: NodeId) -> bool {
-        if node == self.admin {
-            return true;
-        }
-
-        self.allow.read().unwrap().iter().any(|n| n == &node)
-    }
-
-    async fn add(&self, caller: NodeId, node: NodeId) -> bool {
-        if caller != self.admin {
-            return false;
-        }
-
-        self.allow.write().unwrap().push(node);
-        true
-    }
-
-    async fn remove(&self, caller: NodeId, node: NodeId) -> bool {
-        if caller != self.admin {
-            return false;
-        }
-
-        let mut nodes = self.allow.write().unwrap();
-        let allowed = nodes.clone().into_iter().filter(|n| n != &node).collect();
-        *nodes = allowed;
-        true
+        node == self.allow
     }
 }
 
@@ -115,8 +87,7 @@ impl ClientServer {
                 stash::ALPN,
                 Server::new(
                     TestAuth {
-                        admin: client_sk.public(),
-                        allow: Arc::new(RwLock::new(vec![])),
+                        allow: client_sk.public(),
                     },
                     infra.root.clone(),
                 )

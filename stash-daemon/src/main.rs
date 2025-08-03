@@ -1,21 +1,20 @@
-mod auth;
 mod config;
 
-use auth::Auth;
 use config::Config;
-use iroh::{Endpoint, protocol::Router};
-use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
+use iroh::{Endpoint, NodeId, protocol::Router};
 use stash::Server;
 use tokio::signal::unix::{SignalKind, signal};
+
+const GATEKEEPER_ROLE: &'static str = "stash";
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().unwrap();
     let config = Config::build();
 
-    let daemon_db = setup_db(&config.db).await?;
-    let auth = Auth::new(daemon_db, config.admin).await?;
-    let server = Server::new(auth, config.root).await?;
+    let gk = gatekeeper::Arbiter::new(config.gatekeeper_db_path, true).await?;
+    let gk_server = gatekeeper::Server::new(gk.clone());
+    let stash_server = Server::new(Auth { gk }, config.root).await?;
 
     let endpoint = Endpoint::builder()
         .discovery_n0()
@@ -24,7 +23,8 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     let router = Router::builder(endpoint)
-        .accept(stash::ALPN, server)
+        .accept(gatekeeper::ALPN, gk_server)
+        .accept(stash::ALPN, stash_server)
         .spawn();
 
     let mut sigterm = signal(SignalKind::terminate())?;
@@ -35,12 +35,18 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn setup_db(db: &str) -> Result<SqlitePool, sqlx::Error> {
-    let opts = SqliteConnectOptions::new()
-        .filename(db)
-        .create_if_missing(true);
+struct Auth {
+    gk: gatekeeper::Arbiter,
+}
 
-    let pool = SqlitePool::connect_with(opts).await?;
-    sqlx::migrate!("./migrations").run(&pool).await?;
-    Ok(pool)
+impl stash::NodeAuth for Auth {
+    async fn allow(&self, node: NodeId) -> bool {
+        match self.gk.node_roles(&format!("{node}")).await {
+            Err(e) => {
+                tracing::error!(err = ?e, "node_auth_failed");
+                false
+            }
+            Ok(roles) => roles.iter().any(|r| r == GATEKEEPER_ROLE),
+        }
+    }
 }

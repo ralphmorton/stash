@@ -1,5 +1,5 @@
 mod cli;
 mod config;
 
-pub use cli::{Cli, Command};
+pub use cli::{Cli, Cmd};
 pub use config::Config;

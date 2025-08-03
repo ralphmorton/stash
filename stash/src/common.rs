@@ -16,12 +16,6 @@ pub enum Either<A, B> {
 
 #[derive(Clone, Debug, Decode, Encode)]
 pub enum Cmd {
-    AddClient {
-        node: String,
-    },
-    RemoveClient {
-        node: String,
-    },
     Tags,
     CreateBlob,
     DescribeBlob {

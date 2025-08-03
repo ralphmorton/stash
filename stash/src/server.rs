@@ -16,8 +16,6 @@ const FILE_DIR: &'static str = "files";
 
 pub trait NodeAuth {
     fn allow(&self, node: NodeId) -> impl Future<Output = bool> + Send;
-    fn add(&self, caller: NodeId, node: NodeId) -> impl Future<Output = bool> + Send;
-    fn remove(&self, caller: NodeId, node: NodeId) -> impl Future<Output = bool> + Send;
 }
 
 #[derive(Clone)]
@@ -54,14 +52,6 @@ impl<A: NodeAuth> Server<A> {
         tracing::info!(cmd = ?cmd, "handle");
 
         let json = match cmd {
-            Cmd::AddClient { node } => {
-                let rsp = self.add_client(caller, node).await?;
-                bincode::encode_to_vec(&rsp, self.bincode_config)?
-            }
-            Cmd::RemoveClient { node } => {
-                let rsp = self.remove_client(caller, node).await?;
-                bincode::encode_to_vec(&rsp, self.bincode_config)?
-            }
             Cmd::Tags => {
                 let tags = self.tags().await?;
                 bincode::encode_to_vec(&tags, self.bincode_config)?
@@ -117,26 +107,6 @@ impl<A: NodeAuth> Server<A> {
         };
 
         Ok(json)
-    }
-
-    async fn add_client(&self, caller: NodeId, node: String) -> Result<Response<String>, Error> {
-        let node = NodeId::from_str(&node)?;
-
-        if self.auth.add(caller, node).await {
-            Ok(Response::ok())
-        } else {
-            Ok(Response::Err("Unauthorized".to_string()))
-        }
-    }
-
-    async fn remove_client(&self, caller: NodeId, node: String) -> Result<Response<String>, Error> {
-        let node = NodeId::from_str(&node)?;
-
-        if self.auth.remove(caller, node).await {
-            Ok(Response::ok())
-        } else {
-            Ok(Response::Err("Unauthorized".to_string()))
-        }
     }
 
     async fn tags(&self) -> Result<Response<Vec<String>>, Error> {

@@ -2,12 +2,12 @@ use std::{fmt::Write, os::unix::fs::MetadataExt, path::PathBuf, str::FromStr};
 
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-use iroh::{Endpoint, NodeId, SecretKey};
+use iroh::{Endpoint, SecretKey};
 use stash::{Client, File, Tag};
-use stash_client::{Cli, Command, Config};
+use stash_client::{Cli, Cmd, Config};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-const CHUNK_SIZE: usize = 1_000_000;
+const CHUNK_SIZE: usize = 5_000_000;
 
 #[tokio::main]
 async fn main() {
@@ -21,22 +21,20 @@ async fn main() {
 
 async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
-        Command::Keygen => keygen().await,
-        Command::AddClient { node } => add_client(node).await,
-        Command::RemoveClient { node } => remove_client(node).await,
-        Command::Tags => tags().await,
-        Command::Upload {
+        Cmd::Keygen => keygen().await,
+        Cmd::Tags => tags().await,
+        Cmd::Upload {
             path,
             name,
             tags,
             replace,
         } => upload(path, name, tags, replace).await,
-        Command::Download { path, name } => download(path, name).await,
-        Command::Read { name } => read(name).await,
-        Command::Delete { name } => delete(name).await,
-        Command::GcBlobs => gc_blobs().await,
-        Command::List { tag, prefix } => list(tag, prefix).await,
-        Command::Search { tag, term } => search(tag, term).await,
+        Cmd::Download { path, name } => download(path, name).await,
+        Cmd::Read { name } => read(name).await,
+        Cmd::Delete { name } => delete(name).await,
+        Cmd::GcBlobs => gc_blobs().await,
+        Cmd::List { tag, prefix } => list(tag, prefix).await,
+        Cmd::Search { tag, term } => search(tag, term).await,
     }
 }
 
@@ -48,24 +46,6 @@ async fn keygen() -> anyhow::Result<()> {
     let public = format!("{}", sk.public());
 
     println!("Secret: {secret}\nPublic: {public}");
-    Ok(())
-}
-
-async fn add_client(node: String) -> anyhow::Result<()> {
-    let node = NodeId::from_str(&node)?;
-    let client = client().await?;
-    let rsp = client.add_client(node).await?.res()?;
-
-    println!("{rsp}");
-    Ok(())
-}
-
-async fn remove_client(node: String) -> anyhow::Result<()> {
-    let node = NodeId::from_str(&node)?;
-    let client = client().await?;
-    let rsp = client.remove_client(node).await?.res()?;
-
-    println!("{rsp}");
     Ok(())
 }
 

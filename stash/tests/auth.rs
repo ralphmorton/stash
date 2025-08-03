@@ -33,27 +33,4 @@ async fn node_auth() {
 
     let rsp = other_client.tags().await;
     assert!(matches!(rsp, Result::Err(_)));
-
-    let rsp = client.add_client(client_sk.public()).await.unwrap();
-    assert!(matches!(rsp, Response::Ok(_)));
-
-    let rsp = other_client.tags().await.unwrap();
-    assert!(matches!(rsp, Response::Ok(_)));
-
-    let rsp = other_client.add_client(client_sk.public()).await.unwrap();
-    assert!(matches!(rsp, Response::Err(_)));
-    assert_eq!(rsp.err(), "Unauthorized");
-
-    let rsp = other_client
-        .remove_client(client_sk.public())
-        .await
-        .unwrap();
-    assert!(matches!(rsp, Response::Err(_)));
-    assert_eq!(rsp.err(), "Unauthorized");
-
-    let rsp = client.remove_client(client_sk.public()).await.unwrap();
-    assert!(matches!(rsp, Response::Ok(_)));
-
-    let rsp = other_client.tags().await;
-    assert!(matches!(rsp, Result::Err(_)));
 }

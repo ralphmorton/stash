@@ -6,23 +6,13 @@ use clap::{Parser, Subcommand};
 #[command(about = "File server")]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Command,
+    pub command: Cmd,
 }
 
 #[derive(Debug, Subcommand)]
-pub enum Command {
+pub enum Cmd {
     /// Generate a new keypair
     Keygen,
-    /// Add a new client node (requires admin)
-    AddClient {
-        /// Node public key
-        node: String,
-    },
-    /// Remove a client node (requires admin)
-    RemoveClient {
-        /// Node public key
-        node: String,
-    },
     /// List tags
     Tags,
     /// Upload a file
