@@ -1,5 +1,5 @@
 use clap::Parser;
-use stash_client::{Cli, Cmd, Config, exec, keygen};
+use stash_cli::{Cli, Cmd, Config, exec, keygen};
 
 #[tokio::main]
 async fn main() {

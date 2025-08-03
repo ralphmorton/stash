@@ -3736,7 +3736,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "stash-client"
+name = "stash-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
