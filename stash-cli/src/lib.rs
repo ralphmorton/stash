@@ -94,11 +94,12 @@ async fn upload(
         written += n;
     }
 
+    progress.finish();
+
     let file = client
         .commit_blob(blob.name, name, tags, replace)
         .await?
         .res()?;
-    progress.finish();
 
     println!("{}", display_file(&file));
     Ok(())
