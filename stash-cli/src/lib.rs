@@ -70,6 +70,10 @@ async fn upload(
         .map(|t| parse_tag(t))
         .collect::<Result<Vec<Tag>, anyhow::Error>>()?;
 
+    if tags.is_empty() {
+        return Err(anyhow::anyhow!("At least one tag is required"));
+    }
+
     let mut file = tokio::fs::File::open(path).await?;
     let meta = file.metadata().await?;
     let blob = client.create_blob().await?.res()?;
